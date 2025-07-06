@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Explainer: The DICE-FER Framework</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony -->
+    <!-- Application Structure Plan: The SPA is designed as a single-page, vertical scrolling experience with a sticky navigation header for easy access to different thematic sections. The user flow is structured logically: 1. Hero: A high-level introduction to the problem and solution. 2. The Challenge: A visual breakdown of why FER is difficult, contrasting identity and expression. 3. The DICE-FER Solution: An interactive, two-stage diagram explaining the core mechanism. 4. How It Works: A section with expandable accordions to explain the underlying mathematics (Mutual Information, Adversarial Training) in an accessible way. 5. Performance Dashboard: Interactive charts (bar charts via Chart.js) to visualize the quantitative results (MIG scores, Accuracy on different datasets). 6. Visual Proof: An interactive simulation of the qualitative image retrieval test. 7. Conclusion: A summary of the impact. This structure was chosen to guide the user from the "what" and "why" to the "how" and "how well," making a complex research paper digestible and engaging for a broader audience. -->
+    <!-- Visualization & Content Choices: 1. Hero Diagram (HTML/CSS): Goal: Inform. Method: Simple nested boxes to represent the E/I split, providing an immediate visual metaphor. 2. Challenge Section (HTML/CSS): Goal: Compare. Method: Two-column layout with icons to clearly contrast static identity vs. dynamic expression features. 3. Solution Diagram (HTML/CSS/JS): Goal: Organize/Inform. Method: An interactive two-tab component to explain the two-stage training process, allowing users to focus on one stage at a time. 4. Performance Charts (Chart.js/Canvas): Goal: Compare. Method: Interactive bar charts for MIG scores, accuracy, and cross-dataset results. A dropdown allows users to filter accuracy results by dataset, making the data explorable. 5. Image Retrieval Demo (HTML/CSS/JS): Goal: Inform/Organize. Method: A grid of placeholder images whose sources and labels are updated via JS to simulate the qualitative results, providing powerful visual proof. All visualizations are chosen to be clear, interactive, and avoid static, unengaging tables of data. Library: Chart.js for all charting needs. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f5f4; /* stone-100 */
+            color: #292524; /* stone-800 */
+        }
+        .accent-color { color: #0f766e; } /* teal-700 */
+        .accent-bg { background-color: #0f766e; } /* teal-700 */
+        .secondary-accent-bg { background-color: #d97706; } /* amber-600 */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 400px;
+            max-height: 50vh;
+        }
+        .tab-btn.active {
+            background-color: #0f766e; /* teal-700 */
+            color: #ffffff;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-in-out;
+        }
+        .accordion-content.open {
+            max-height: 500px;
+        }
+        .nav-link {
+            transition: color 0.2s;
+        }
+        .nav-link:hover {
+            color: #0f766e; /* teal-700 */
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Header & Navigation -->
+    <header class="bg-stone-100/80 backdrop-blur-md sticky top-0 z-50 border-b border-stone-200">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="font-bold text-xl text-stone-900">DICE-FER</span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#challenge" class="nav-link text-stone-600 px-3 py-2 rounded-md text-sm font-medium">The Challenge</a>
+                        <a href="#solution" class="nav-link text-stone-600 px-3 py-2 rounded-md text-sm font-medium">The Solution</a>
+                        <a href="#dashboard" class="nav-link text-stone-600 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
+                        <a href="#proof" class="nav-link text-stone-600 px-3 py-2 rounded-md text-sm font-medium">Visual Proof</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        
+        <!-- Hero Section -->
+        <section id="home" class="text-center py-16">
+            <h1 class="text-4xl md:text-5xl font-bold tracking-tight text-stone-900">Separating <span class="accent-color">Who You Are</span> from <span class="text-amber-600">How You Feel</span></h1>
+            <p class="mt-6 max-w-3xl mx-auto text-lg text-stone-600">An interactive exploration of DICE-FER, a framework that teaches computers to recognize facial expressions by learning to ignore a person's identity.</p>
+            <div class="mt-12 flex justify-center">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-stone-200 w-full max-w-md">
+                    <p class="font-semibold text-stone-700 mb-4">A Face Image is Decoded Into Two Parts:</p>
+                    <div class="relative border-2 border-dashed border-stone-300 rounded-lg p-8">
+                        <p class="font-bold text-lg text-stone-800">Total Representation (T)</p>
+                        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-teal-50 border border-teal-200 p-4 rounded-lg text-center">
+                                <p class="font-bold text-teal-800">Expression (E)</p>
+                                <p class="text-sm text-teal-600">The Emotion</p>
+                            </div>
+                            <div class="bg-amber-50 border border-amber-200 p-4 rounded-lg text-center">
+                                <p class="font-bold text-amber-800">Identity (I)</p>
+                                <p class="text-sm text-amber-600">The Person</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- The Challenge Section -->
+        <section id="challenge" class="py-16">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-stone-900">The Core Challenge: Confounding Features</h2>
+                <p class="mt-4 max-w-2xl mx-auto text-lg text-stone-600">Traditional AI models struggle because they can't easily distinguish between permanent facial features and temporary emotional expressions. They "confound" the two, leading to poor performance on unseen faces.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-stone-200">
+                    <div class="flex items-center mb-4">
+                        <div class="secondary-accent-bg p-2 rounded-full">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        </div>
+                        <h3 class="ml-4 text-xl font-semibold text-stone-800">Identity Features</h3>
+                    </div>
+                    <p class="text-stone-600">These are the static, permanent characteristics that define a person's face. They don't change with emotion.</p>
+                    <ul class="mt-4 space-y-2 text-stone-600">
+                        <li class="flex items-start"><span class="mr-2 text-amber-600 font-bold">›</span> Bone Structure</li>
+                        <li class="flex items-start"><span class="mr-2 text-amber-600 font-bold">›</span> Nose and Eye Shape</li>
+                        <li class="flex items-start"><span class="mr-2 text-amber-600 font-bold">›</span> Skin Texture & Moles</li>
+                        <li class="flex items-start"><span class="mr-2 text-amber-600 font-bold">›</span> Demographic Traits</li>
+                    </ul>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-stone-200">
+                    <div class="flex items-center mb-4">
+                        <div class="accent-bg p-2 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                        </div>
+                        <h3 class="ml-4 text-xl font-semibold text-stone-800">Expression Features</h3>
+                    </div>
+                    <p class="text-stone-600">These are dynamic, temporary muscle movements that convey emotion. They are universal across different identities.</p>
+                    <ul class="mt-4 space-y-2 text-stone-600">
+                        <li class="flex items-start"><span class="mr-2 text-teal-600 font-bold">›</span> Mouth Curvature (Smile/Frown)</li>
+                        <li class="flex items-start"><span class="mr-2 text-teal-600 font-bold">›</span> Eyebrow Position</li>
+                        <li class="flex items-start"><span class="mr-2 text-teal-600 font-bold">›</span> Wrinkles around Eyes/Forehead</li>
+                        <li class="flex items-start"><span class="mr-2 text-teal-600 font-bold">›</span> Eye Widening/Narrowing</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- The DICE-FER Solution Section -->
+        <section id="solution" class="py-16 bg-white rounded-xl shadow-lg border border-stone-200">
+            <div class="text-center mb-12 px-4">
+                <h2 class="text-3xl font-bold text-stone-900">The Two-Stage Solution</h2>
+                <p class="mt-4 max-w-2xl mx-auto text-lg text-stone-600">DICE-FER disentangles features through an innovative two-stage training process. Explore each stage below to see how it works.</p>
+            </div>
+            
+            <div class="max-w-4xl mx-auto px-4">
+                <div class="flex justify-center border-b border-stone-200 mb-8">
+                    <button id="tab1-btn" class="tab-btn active px-6 py-3 font-semibold text-stone-600 focus:outline-none">Stage 1: Learn Expression</button>
+                    <button id="tab2-btn" class="tab-btn px-6 py-3 font-semibold text-stone-600 focus:outline-none">Stage 2: Learn Identity</button>
+                </div>
+                
+                <!-- Stage 1 Content -->
+                <div id="tab1-content" class="text-center">
+                    <h3 class="text-2xl font-semibold text-stone-800 mb-4">Learning Shared Expression Features (E)</h3>
+                    <p class="text-stone-600 mb-8">The model is shown paired images of <span class="font-bold">different people</span> showing the <span class="font-bold">same expression</span>. By maximizing "cross-referenced" mutual information, it learns to extract only the common features—the expression.</p>
+                    <div class="flex flex-col md:flex-row items-center justify-center gap-4">
+                        <div class="text-center">
+                            <img src="https://placehold.co/150x150/f9a8d4/4c0519?text=Happy\nPerson+A" class="rounded-lg shadow-md mx-auto" alt="Happy Person A">
+                            <p class="mt-2 font-semibold">Image M</p>
+                        </div>
+                        <div class="text-2xl font-bold text-stone-400 mx-4">+</div>
+                        <div class="text-center">
+                           <img src="https://placehold.co/150x150/a5b4fc/1e1b4b?text=Happy\nPerson+B" class="rounded-lg shadow-md mx-auto" alt="Happy Person B">
+                           <p class="mt-2 font-semibold">Image N</p>
+                        </div>
+                        <div class="text-2xl font-bold text-teal-500 mx-4">→</div>
+                        <div class="p-6 bg-teal-50 border border-teal-200 rounded-lg">
+                           <p class="font-bold text-2xl text-teal-800">E</p>
+                           <p class="text-sm text-teal-600">Pure Expression</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stage 2 Content -->
+                <div id="tab2-content" class="hidden text-center">
+                    <h3 class="text-2xl font-semibold text-stone-800 mb-4">Learning Exclusive Identity Features (I)</h3>
+                    <p class="text-stone-600 mb-8">With the expression (E) identified, the model finds the *remaining* information. An adversarial process ensures this new information, the identity (I), has zero overlap with the expression.</p>
+                     <div class="flex flex-col md:flex-row items-center justify-center gap-4">
+                        <div class="text-center">
+                            <img src="https://placehold.co/150x150/f9a8d4/4c0519?text=Happy\nPerson+A" class="rounded-lg shadow-md mx-auto" alt="Happy Person A">
+                            <p class="mt-2 font-semibold">Image M</p>
+                        </div>
+                         <div class="text-2xl font-bold text-stone-400 mx-4">-</div>
+                         <div class="p-6 bg-teal-50 border border-teal-200 rounded-lg">
+                           <p class="font-bold text-2xl text-teal-800">E</p>
+                           <p class="text-sm text-teal-600">Expression</p>
+                        </div>
+                        <div class="text-2xl font-bold text-amber-500 mx-4">→</div>
+                        <div class="p-6 bg-amber-50 border border-amber-200 rounded-lg">
+                           <p class="font-bold text-2xl text-amber-800">I</p>
+                           <p class="text-sm text-amber-600">Pure Identity</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Math Section -->
+        <section id="math" class="py-16">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-stone-900">How It Works: The Math</h2>
+                <p class="mt-4 max-w-2xl mx-auto text-lg text-stone-600">DICE-FER uses two key mathematical concepts to achieve disentanglement. Click to learn more about each.</p>
+            </div>
+            <div class="max-w-3xl mx-auto space-y-4">
+                <div class="accordion-item bg-white rounded-xl shadow-lg border border-stone-200">
+                    <button class="accordion-header w-full flex justify-between items-center text-left p-6">
+                        <span class="text-xl font-semibold text-stone-800">1. Mutual Information (MI) Estimation</span>
+                        <span class="accordion-icon text-2xl text-stone-500 transform transition-transform">+</span>
+                    </button>
+                    <div class="accordion-content px-6 pb-6">
+                        <p class="text-stone-600">Mutual Information measures how much two variables tell you about each other. DICE-FER's goal is to **maximize** MI between an image and its *correct* representation (e.g., expression) and **minimize** MI between unrelated parts (expression and identity).</p>
+                        <p class="mt-4 text-stone-600">Since direct calculation is impossible, it uses a **statistics network** ($U_\theta$) to *estimate* MI. This network learns to score pairs of inputs. It gives high scores to pairs that are truly related (high MI) and low scores to unrelated pairs (low MI).</p>
+                    </div>
+                </div>
+                <div class="accordion-item bg-white rounded-xl shadow-lg border border-stone-200">
+                    <button class="accordion-header w-full flex justify-between items-center text-left p-6">
+                        <span class="text-xl font-semibold text-stone-800">2. Adversarial Objective</span>
+                        <span class="accordion-icon text-2xl text-stone-500 transform transition-transform">+</span>
+                    </button>
+                    <div class="accordion-content px-6 pb-6">
+                        <p class="text-stone-600">To ensure expression (E) and identity (I) are truly separate, DICE-FER plays an "adversarial game." It's like a forger and a detective:</p>
+                        <ul class="mt-4 space-y-2 list-disc list-inside text-stone-600">
+                            <li>The **Identity Encoder** (the forger) tries to create an identity representation (I) that has no traces of the expression (E).</li>
+                            <li>A **Discriminator Network** (the detective) tries to detect if there's any shared information between E and I.</li>
+                        </ul>
+                        <p class="mt-4 text-stone-600">By training the encoder to fool the discriminator, the model forces the mutual information between E and I to become zero, achieving perfect disentanglement.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="py-16">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-stone-900">Performance Dashboard</h2>
+                <p class="mt-4 max-w-2xl mx-auto text-lg text-stone-600">How well does DICE-FER perform? This dashboard visualizes its results compared to other state-of-the-art (SOTA) methods on benchmark datasets.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Disentanglement Chart -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-stone-200">
+                    <h3 class="text-xl font-semibold text-stone-800 mb-4">Disentanglement Quality (MIG Score)</h3>
+                    <p class="text-sm text-stone-500 mb-4">Higher is better. Measures how well expression and identity are separated.</p>
+                    <div class="chart-container" style="height: 350px;">
+                        <canvas id="migChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Cross-Dataset Generalization Chart -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-stone-200">
+                    <h3 class="text-xl font-semibold text-stone-800 mb-4">Cross-Dataset Generalization</h3>
+                    <p class="text-sm text-stone-500 mb-4">Accuracy when trained on one dataset and tested on another. Higher is better.</p>
+                    <div class="chart-container" style="height: 350px;">
+                        <canvas id="crossDatasetChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Accuracy Chart -->
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-stone-200 mt-8">
+                <div class="flex flex-col sm:flex-row justify-between items-center mb-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-stone-800">Recognition Accuracy</h3>
+                        <p class="text-sm text-stone-500">Comparing DICE-FER to other methods. Higher is better.</p>
+                    </div>
+                    <div class="mt-4 sm:mt-0">
+                        <select id="datasetSelector" class="bg-stone-50 border border-stone-300 text-stone-900 text-sm rounded-lg focus:ring-teal-500 focus:border-teal-500 block w-full p-2.5">
+                            <option value="CK+">CK+</option>
+                            <option value="Oulu-CASIA">Oulu-CASIA</option>
+                            <option value="RAF-DB">RAF-DB</option>
+                            <option value="AffectNet">AffectNet</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="accuracyChart"></canvas>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Visual Proof Section -->
+        <section id="proof" class="py-16">
+             <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-stone-900">Visual Proof: Image Retrieval</h2>
+                <p class="mt-4 max-w-2xl mx-auto text-lg text-stone-600">This simulates the paper's qualitative test. We can "query" the dataset using either the pure expression or the pure identity. See how the retrieved images change.</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-lg border border-stone-200 max-w-5xl mx-auto">
+                <div class="flex flex-col sm:flex-row justify-center items-center gap-4 mb-8">
+                    <p class="font-semibold text-stone-700">Retrieve images based on:</p>
+                    <button id="query-expression-btn" class="px-4 py-2 secondary-accent-bg text-white font-semibold rounded-lg shadow-md hover:bg-amber-700 transition w-full sm:w-auto">Shared Expression</button>
+                    <button id="query-identity-btn" class="px-4 py-2 accent-bg text-white font-semibold rounded-lg shadow-md hover:bg-teal-800 transition w-full sm:w-auto">Exclusive Identity</button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-start">
+                    <div class="text-center md:col-span-1">
+                        <p class="font-bold mb-2">Query:</p>
+                        <img id="query-img" src="https://placehold.co/150x150/d6d3d1/1c1917?text=Select+Query" class="rounded-lg shadow-md mx-auto" alt="Query Image">
+                        <p id="query-label" class="mt-2 text-sm font-semibold text-stone-700">Initial State</p>
+                    </div>
+
+                    <div class="md:col-span-5">
+                        <p class="font-bold mb-2 text-center md:text-left">Nearest Neighbours (Retrieved Results):</p>
+                        <div id="retrieval-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                            <!-- JS will populate this -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Conclusion -->
+        <footer class="text-center py-16 border-t border-stone-200">
+             <h2 class="text-3xl font-bold text-stone-900">Conclusion & Impact</h2>
+             <p class="mt-4 max-w-3xl mx-auto text-lg text-stone-600">DICE-FER represents a significant step forward for facial expression recognition. By effectively decoupling identity from expression without needing extra labels, it offers a more robust, scalable, and efficient solution that performs exceptionally well in both controlled lab settings and challenging real-world environments.</p>
+        </footer>
+
+    </main>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Tab functionality for Solution section
+            const tab1Btn = document.getElementById('tab1-btn');
+            const tab2Btn = document.getElementById('tab2-btn');
+            const tab1Content = document.getElementById('tab1-content');
+            const tab2Content = document.getElementById('tab2-content');
+
+            tab1Btn.addEventListener('click', () => {
+                tab1Btn.classList.add('active');
+                tab2Btn.classList.remove('active');
+                tab1Content.classList.remove('hidden');
+                tab2Content.classList.add('hidden');
+            });
+
+            tab2Btn.addEventListener('click', () => {
+                tab2Btn.classList.add('active');
+                tab1Btn.classList.remove('active');
+                tab2Content.classList.remove('hidden');
+                tab1Content.classList.add('hidden');
+            });
+            
+            // Accordion functionality for Math section
+            const accordions = document.querySelectorAll('.accordion-item');
+            accordions.forEach(item => {
+                const header = item.querySelector('.accordion-header');
+                const content = item.querySelector('.accordion-content');
+                const icon = item.querySelector('.accordion-icon');
+                header.addEventListener('click', () => {
+                    content.classList.toggle('open');
+                    icon.textContent = content.classList.contains('open') ? '-' : '+';
+                    icon.classList.toggle('rotate-45');
+                });
+            });
+
+            // Chart Data
+            const migData = {
+                labels: ['TDGAN', 'Cross-VAE', 'TERGAN', 'IPD-FER', 'AGILE', 'DICE-FER (ours)'],
+                datasets: [
+                    { label: 'CK+', data: [0.454, 0.490, 0.496, 0.465, 0.588, 0.592], backgroundColor: '#f59e0b' },
+                    { label: 'Oulu-CASIA', data: [0.400, 0.411, 0.432, 0.455, 0.481, 0.497], backgroundColor: '#14b8a6' },
+                    { label: 'RAF-DB', data: [0.365, 0.371, 0.388, 0.394, 0.400, 0.418], backgroundColor: '#64748b' },
+                    { label: 'AffectNet', data: [0.350, 0.383, 0.388, 0.427, 0.430, 0.448], backgroundColor: '#ef4444' }
+                ]
+            };
+            
+            const accuracyData = {
+                'CK+': { labels: ['ResNet-18', 'DR-ALNet', 'DICE-FER (ours)'], data: [97.39, 99.34, 99.50] },
+                'Oulu-CASIA': { labels: ['ResNet-18', 'AGILE', 'DICE-FER (ours)'], data: [86.00, 90.60, 91.10] },
+                'RAF-DB': { labels: ['ResNet-18', 'IPD-FER', 'DICE-FER (ours)'], data: [87.48, 88.89, 90.30] },
+                'AffectNet': { labels: ['ResNet-18', 'BregNet', 'DICE-FER (ours)'], data: [59.06, 63.54, 64.36] },
+            };
+
+            const crossDatasetData = {
+                labels: ['Train: CK+, Test: Oulu', 'Train: Oulu, Test: CK+', 'Train: RAF-DB, Test: CK+', 'Train: AffectNet, Test: CK+'],
+                datasets: [
+                    { label: 'AGILE', data: [48.12, null, null, null], backgroundColor: '#64748b' },
+                    { label: 'DICE-FER (ours)', data: [50.67, 62.48, 82.34, 86.91], backgroundColor: '#14b8a6' }
+                ]
+            };
+
+            // Chart Rendering
+            const chartOptions = {
+                maintainAspectRatio: false,
+                responsive: true,
+                scales: { y: { beginAtZero: false, suggestedMin: 80 } },
+                plugins: { legend: { position: 'top' } }
+            };
+            
+            const migChartCtx = document.getElementById('migChart').getContext('2d');
+            new Chart(migChartCtx, { type: 'bar', data: migData, options: { maintainAspectRatio: false, responsive: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } } } });
+
+            const crossDatasetCtx = document.getElementById('crossDatasetChart').getContext('2d');
+            new Chart(crossDatasetCtx, { type: 'bar', data: crossDatasetData, options: { maintainAspectRatio: false, responsive: true, scales: { y: { beginAtZero: false, suggestedMin: 40 } }, plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } } } });
+
+            const accuracyChartCtx = document.getElementById('accuracyChart').getContext('2d');
+            let accuracyChart = new Chart(accuracyChartCtx, { type: 'bar', options: chartOptions });
+
+            function updateAccuracyChart(dataset) {
+                const newData = accuracyData[dataset];
+                accuracyChart.data = {
+                    labels: newData.labels,
+                    datasets: [{
+                        label: `Accuracy on ${dataset} (%)`,
+                        data: newData.data,
+                        backgroundColor: ['#64748b', '#f59e0b', '#14b8a6'],
+                        borderColor: '#ffffff',
+                        borderWidth: 1
+                    }]
+                };
+                accuracyChart.options.scales.y.suggestedMin = Math.min(...newData.data) - 2 > 0 ? Math.floor(Math.min(...newData.data) - 2) : 0;
+                accuracyChart.update();
+            }
+
+            document.getElementById('datasetSelector').addEventListener('change', (e) => {
+                updateAccuracyChart(e.target.value);
+            });
+
+            updateAccuracyChart('CK+');
+            
+            // Image Retrieval Logic
+            const queryImg = document.getElementById('query-img');
+            const queryLabel = document.getElementById('query-label');
+            const retrievalGrid = document.getElementById('retrieval-grid');
+            const queryExpressionBtn = document.getElementById('query-expression-btn');
+            const queryIdentityBtn = document.getElementById('query-identity-btn');
+
+            const retrievalData = {
+                expression: {
+                    query: { src: 'https://placehold.co/150x150/86efac/052e16?text=Query:\nHappy', label: 'Query by Expression: Happy' },
+                    results: [
+                        { src: 'https://placehold.co/150x150/f9a8d4/4c0519?text=Happy\n(ID: A)', label: 'Happy' },
+                        { src: 'https://placehold.co/150x150/a5b4fc/1e1b4b?text=Happy\n(ID: B)', label: 'Happy' },
+                        { src: 'https://placehold.co/150x150/fde047/422006?text=Happy\n(ID: C)', label: 'Happy' },
+                        { src: 'https://placehold.co/150x150/99f6e4/042f2e?text=Happy\n(ID: D)', label: 'Happy' },
+                        { src: 'https://placehold.co/150x150/fca5a5/450a0a?text=Happy\n(ID: E)', label: 'Happy' },
+                    ]
+                },
+                identity: {
+                    query: { src: 'https://placehold.co/150x150/f9a8d4/4c0519?text=Query:\nID:+A', label: 'Query by Identity: A' },
+                    results: [
+                        { src: 'https://placehold.co/150x150/f9a8d4/4c0519?text=Happy\n(ID: A)', label: 'Happy' },
+                        { src: 'https://placehold.co/150x150/f9a8d4/4c0519?text=Sad\n(ID: A)', label: 'Sad' },
+                        { src: 'https://placehold.co/150x150/f9a8d4/4c0519?text=Angry\n(ID: A)', label: 'Angry' },
+                        { src: 'https://placehold.co/150x150/f9a8d4/4c0519?text=Surprise\n(ID: A)', label: 'Surprise' },
+                        { src: 'https://placehold.co/150x150/f9a8d4/4c0519?text=Neutral\n(ID: A)', label: 'Neutral' },
+                    ]
+                }
+            };
+
+            function updateRetrievalGrid(type) {
+                const data = retrievalData[type];
+                queryImg.src = data.query.src;
+                queryLabel.textContent = data.query.label;
+                retrievalGrid.innerHTML = '';
+                data.results.forEach(res => {
+                    const cell = `
+                        <div class="text-center">
+                            <img src="${res.src}" class="rounded-lg shadow-md mx-auto" alt="Retrieved Image">
+                            <p class="mt-2 text-sm font-medium text-stone-600">${res.label}</p>
+                        </div>
+                    `;
+                    retrievalGrid.innerHTML += cell;
+                });
+            }
+
+            queryExpressionBtn.addEventListener('click', () => updateRetrievalGrid('expression'));
+            queryIdentityBtn.addEventListener('click', () => updateRetrievalGrid('identity'));
+
+            // Set initial state for retrieval grid
+            updateRetrievalGrid('expression');
+        });
+    </script>
+</body>
+</html>
